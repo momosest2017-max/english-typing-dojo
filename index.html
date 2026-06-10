@@ -102,6 +102,23 @@
   .btn-primary { background: var(--accent); color: #082f49; }
   .btn-ghost { background: var(--panel2); color: var(--text); }
 
+  .lb-form { display: flex; gap: 8px; }
+  .lb-form input {
+    flex: 1; background: var(--panel2); border: 1px solid #334155; border-radius: 8px;
+    padding: 10px 12px; color: var(--text); font-family: inherit; font-size: 0.95rem;
+  }
+  .lb-form input:focus { outline: none; border-color: var(--accent); }
+  .lb-status { font-size: 0.8rem; color: var(--sub); margin-top: 6px; min-height: 1rem; }
+  .leaderboard { margin-top: 14px; }
+  .lb-row {
+    display: flex; align-items: baseline; gap: 10px;
+    background: var(--panel2); border-radius: 8px; padding: 8px 14px; margin-bottom: 5px; font-size: 0.9rem;
+  }
+  .lb-row.me { border: 1px solid var(--gold); }
+  .lb-row .pos { width: 2em; font-weight: 700; color: var(--gold); }
+  .lb-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-row .pts { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .lb-row .sub2 { color: var(--sub); font-size: 0.75rem; }
   .hidden { display: none; }
   .best { text-align: center; color: var(--sub); font-size: 0.8rem; margin-top: 14px; }
   .footer { text-align: center; color: #475569; font-size: 0.75rem; margin-top: 16px; }
@@ -174,6 +191,15 @@
       <h3>📝 復習リスト（ミス・スキップした単語）</h3>
       <div id="review-list"></div>
     </div>
+    <div class="lb-submit" id="lb-submit">
+      <h3 style="font-size:.95rem; color:var(--sub); margin:18px 0 8px;">🏆 みんなのランキングに登録</h3>
+      <div class="lb-form">
+        <input type="text" id="player-name" maxlength="12" placeholder="プレイヤー名（12文字まで）">
+        <button class="btn btn-primary" id="submit-score-btn" style="flex:0 0 auto; padding:10px 18px;">登録</button>
+      </div>
+      <div class="lb-status" id="lb-status"></div>
+    </div>
+    <div class="leaderboard" id="leaderboard"></div>
     <div class="btn-row">
       <button class="btn btn-primary" id="retry-btn">もう一度</button>
       <button class="btn btn-ghost" id="home-btn">レベル選択へ</button>
@@ -402,6 +428,18 @@ function endGame() {
   const prev = parseInt(localStorage.getItem(bestKey(state.level)) || "0", 10);
   if (state.score > prev) localStorage.setItem(bestKey(state.level), String(state.score));
 
+  lastResult = { score: state.score, level: state.level, wpm, acc };
+  if (lbAvailable()) {
+    $("lb-submit").style.display = "";
+    $("player-name").value = localStorage.getItem("etd-player-name") || "";
+    $("submit-score-btn").disabled = false;
+    $("lb-status").textContent = "";
+    fetchLeaderboard(state.level, null);
+  } else {
+    $("lb-submit").style.display = "none";
+    $("leaderboard").innerHTML = "";
+  }
+
   show("result");
 }
 
@@ -413,6 +451,59 @@ $("home-btn").addEventListener("click", () => { updateBestDisplay(); show("start
 document.addEventListener("keydown", onKey);
 updateBestDisplay();
 window.__etd = { forceEnd: () => state && endGame() };
+
+/* ===== Global leaderboard (Google Apps Script backend) ===== */
+const API_URL = "https://script.google.com/macros/s/AKfycbwWBQJRQ-07iO4W96rk0aV314hZERsCy6Zc6KUZrbAw7G88kckXpJSL8L-x8ImDUo380Q/exec";
+
+let lastResult = null;
+
+function lbAvailable() { return API_URL && !API_URL.includes("%%"); }
+
+async function fetchLeaderboard(level, highlightName) {
+  const box = $("leaderboard");
+  box.innerHTML = '<div class="lb-status">ランキング読み込み中…</div>';
+  try {
+    const res = await fetch(API_URL + "?action=top&level=" + encodeURIComponent(level));
+    const data = await res.json();
+    if (!data.top || data.top.length === 0) {
+      box.innerHTML = '<div class="lb-status">まだ記録がありません。一番乗りのチャンス！</div>';
+      return;
+    }
+    box.innerHTML = data.top.map((r, i) =>
+      '<div class="lb-row' + (highlightName && r.name === highlightName ? " me" : "") + '">' +
+      '<span class="pos">' + (i + 1) + '</span>' +
+      '<span class="name">' + esc(r.name) + '</span>' +
+      '<span class="sub2">' + r.wpm + 'wpm / ' + r.acc + '%</span>' +
+      '<span class="pts">' + r.score + '点</span></div>'
+    ).join("");
+  } catch (err) {
+    box.innerHTML = '<div class="lb-status">ランキングを取得できませんでした</div>';
+  }
+}
+
+async function submitScore() {
+  if (!lastResult) return;
+  const name = $("player-name").value.trim() || "名無し";
+  localStorage.setItem("etd-player-name", name);
+  const btn = $("submit-score-btn");
+  btn.disabled = true;
+  $("lb-status").textContent = "送信中…";
+  try {
+    await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ name, ...lastResult })
+    });
+    $("lb-status").textContent = "✅ 登録しました！";
+    fetchLeaderboard(lastResult.level, name);
+  } catch (err) {
+    $("lb-status").textContent = "送信に失敗しました。時間をおいて再度どうぞ";
+    btn.disabled = false;
+  }
+}
+
+$("submit-score-btn").addEventListener("click", submitScore);
+$("player-name").addEventListener("keydown", e => e.stopPropagation());
 </script>
 </body>
 </html>
