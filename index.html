@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>English Typing Dojo — タイピングで英単語学習</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel2: #283548;
+    --text: #e2e8f0;
+    --sub: #94a3b8;
+    --accent: #38bdf8;
+    --good: #4ade80;
+    --bad: #f87171;
+    --gold: #fbbf24;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Sans", "Noto Sans JP", -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .app { width: 100%; max-width: 720px; }
+  h1 { font-size: 1.6rem; text-align: center; margin-bottom: 4px; }
+  h1 .en { color: var(--accent); }
+  .tagline { text-align: center; color: var(--sub); font-size: 0.85rem; margin-bottom: 20px; }
+
+  .screen { background: var(--panel); border-radius: 16px; padding: 28px; box-shadow: 0 8px 32px rgba(0,0,0,.4); }
+
+  /* ===== Start screen ===== */
+  .level-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
+  .level-btn {
+    background: var(--panel2); border: 2px solid transparent; border-radius: 12px;
+    padding: 18px 14px; cursor: pointer; color: var(--text); text-align: left;
+    transition: border-color .15s, transform .1s; font-family: inherit;
+  }
+  .level-btn:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .level-btn .lv { font-weight: 700; font-size: 1.05rem; margin-bottom: 4px; }
+  .level-btn .desc { color: var(--sub); font-size: 0.8rem; line-height: 1.5; }
+  .rules { color: var(--sub); font-size: 0.85rem; line-height: 1.8; margin-top: 20px; background: var(--panel2); border-radius: 10px; padding: 14px 18px; }
+
+  /* ===== Game screen ===== */
+  .hud { display: flex; justify-content: space-between; margin-bottom: 22px; gap: 8px; flex-wrap: wrap; }
+  .hud .stat { background: var(--panel2); border-radius: 10px; padding: 8px 16px; text-align: center; flex: 1; min-width: 90px; }
+  .hud .label { font-size: 0.7rem; color: var(--sub); }
+  .hud .value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hud .value.time-low { color: var(--bad); }
+
+  .meaning {
+    text-align: center; font-size: 1.3rem; font-weight: 700; margin-bottom: 6px; min-height: 2rem;
+  }
+  .hint { text-align: center; color: var(--sub); font-size: 0.85rem; margin-bottom: 18px; min-height: 1.2rem; }
+
+  .word {
+    text-align: center; font-family: "SF Mono", "Menlo", monospace;
+    font-size: 2.6rem; letter-spacing: 0.12em; margin-bottom: 24px; min-height: 3.5rem;
+    user-select: none;
+  }
+  .word .done { color: var(--good); }
+  .word .current { color: var(--text); border-bottom: 3px solid var(--accent); }
+  .word .rest { color: var(--sub); }
+  .word.shake { animation: shake .18s; }
+  @keyframes shake { 25% { transform: translateX(-6px);} 75% { transform: translateX(6px);} }
+
+  .sentence-box { text-align: center; color: var(--sub); font-size: 0.9rem; min-height: 1.4rem; margin-bottom: 8px; font-style: italic; }
+
+  .progress { height: 6px; background: var(--panel2); border-radius: 3px; overflow: hidden; margin-top: 18px; }
+  .progress .bar { height: 100%; background: var(--accent); transition: width .2s; }
+
+  /* ===== Result screen ===== */
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
+  .result-card { background: var(--panel2); border-radius: 12px; padding: 16px; text-align: center; }
+  .result-card .label { color: var(--sub); font-size: 0.75rem; margin-bottom: 4px; }
+  .result-card .value { font-size: 1.7rem; font-weight: 700; }
+  .result-card .value.gold { color: var(--gold); }
+  .rank-display { text-align: center; margin: 8px 0 4px; }
+  .rank-display .rank { font-size: 3.2rem; font-weight: 800; color: var(--gold); }
+  .rank-display .rank-msg { color: var(--sub); font-size: 0.9rem; margin-top: 2px; }
+
+  .review { margin-top: 18px; }
+  .review h3 { font-size: 0.95rem; margin-bottom: 10px; color: var(--sub); }
+  .review-item {
+    display: flex; justify-content: space-between; align-items: baseline;
+    background: var(--panel2); border-radius: 8px; padding: 10px 14px; margin-bottom: 6px; font-size: 0.9rem;
+  }
+  .review-item .w { font-family: "SF Mono", Menlo, monospace; font-weight: 700; color: var(--bad); }
+  .review-item .m { color: var(--sub); }
+
+  .btn-row { display: flex; gap: 12px; margin-top: 22px; }
+  .btn {
+    flex: 1; padding: 14px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 700;
+    cursor: pointer; font-family: inherit; transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--accent); color: #082f49; }
+  .btn-ghost { background: var(--panel2); color: var(--text); }
+
+  .hidden { display: none; }
+  .best { text-align: center; color: var(--sub); font-size: 0.8rem; margin-top: 14px; }
+  .footer { text-align: center; color: #475569; font-size: 0.75rem; margin-top: 16px; }
+  kbd { background: var(--panel2); border-radius: 4px; padding: 1px 6px; font-family: Menlo, monospace; font-size: .8em; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1><span class="en">English Typing Dojo</span> ⌨️</h1>
+  <p class="tagline">日本語の意味を見て、英単語をタイプ！ タイピング練習 × 英語学習</p>
+
+  <!-- Start screen -->
+  <div class="screen" id="start-screen">
+    <p style="font-weight:700; margin-bottom:4px;">レベルを選んでスタート</p>
+    <div class="level-grid">
+      <button class="level-btn" data-level="beginner">
+        <div class="lv">🌱 初級</div>
+        <div class="desc">中学レベルの基本単語。<br>まずはここから（60秒）</div>
+      </button>
+      <button class="level-btn" data-level="intermediate">
+        <div class="lv">🔥 中級</div>
+        <div class="desc">高校〜日常会話レベル。<br>TOEIC 500点目標（60秒）</div>
+      </button>
+      <button class="level-btn" data-level="advanced">
+        <div class="lv">⚡ 上級</div>
+        <div class="desc">ビジネス・ニュース頻出語。<br>TOEIC 700点以上（60秒）</div>
+      </button>
+      <button class="level-btn" data-level="phrases">
+        <div class="lv">💬 フレーズ</div>
+        <div class="desc">使える英語の短文をタイプ。<br>スペースも正確に（90秒）</div>
+      </button>
+    </div>
+    <div class="rules">
+      📖 <b>遊び方</b><br>
+      ・日本語の意味が表示されるので、対応する英語をタイプ<br>
+      ・わからない時は <kbd>Tab</kbd> でスキップ（ヒント表示はミス扱いなし）<br>
+      ・正確さ重視！ミスタイプはスコアに響きます
+    </div>
+    <div class="best" id="best-display"></div>
+  </div>
+
+  <!-- Game screen -->
+  <div class="screen hidden" id="game-screen">
+    <div class="hud">
+      <div class="stat"><div class="label">残り時間</div><div class="value" id="time">60</div></div>
+      <div class="stat"><div class="label">スコア</div><div class="value" id="score">0</div></div>
+      <div class="stat"><div class="label">正解数</div><div class="value" id="solved">0</div></div>
+      <div class="stat"><div class="label">正確率</div><div class="value" id="acc">100%</div></div>
+    </div>
+    <div class="meaning" id="meaning"></div>
+    <div class="hint" id="hint">Tab: スキップ</div>
+    <div class="word" id="word"></div>
+    <div class="sentence-box" id="sentence"></div>
+    <div class="progress"><div class="bar" id="bar" style="width:0%"></div></div>
+  </div>
+
+  <!-- Result screen -->
+  <div class="screen hidden" id="result-screen">
+    <div class="rank-display">
+      <div class="rank" id="rank">A</div>
+      <div class="rank-msg" id="rank-msg"></div>
+    </div>
+    <div class="result-grid">
+      <div class="result-card"><div class="label">スコア</div><div class="value gold" id="r-score">0</div></div>
+      <div class="result-card"><div class="label">正解した単語</div><div class="value" id="r-solved">0</div></div>
+      <div class="result-card"><div class="label">WPM（タイプ速度）</div><div class="value" id="r-wpm">0</div></div>
+      <div class="result-card"><div class="label">正確率</div><div class="value" id="r-acc">0%</div></div>
+    </div>
+    <div class="review" id="review">
+      <h3>📝 復習リスト（ミス・スキップした単語）</h3>
+      <div id="review-list"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="retry-btn">もう一度</button>
+      <button class="btn btn-ghost" id="home-btn">レベル選択へ</button>
+    </div>
+  </div>
+
+  <p class="footer">English Typing Dojo — typing practice meets vocabulary building</p>
+</div>
+
+<script>
+const WORDS = {
+  beginner: [
+    ["apple","りんご"],["water","水"],["house","家"],["school","学校"],["friend","友達"],
+    ["happy","幸せな"],["money","お金"],["family","家族"],["music","音楽"],["dinner","夕食"],
+    ["window","窓"],["summer","夏"],["winter","冬"],["mountain","山"],["river","川"],
+    ["animal","動物"],["doctor","医者"],["teacher","先生"],["student","生徒"],["library","図書館"],
+    ["breakfast","朝食"],["weather","天気"],["holiday","休日"],["kitchen","台所"],["garden","庭"],
+    ["picture","写真・絵"],["question","質問"],["answer","答え"],["country","国"],["station","駅"],
+    ["morning","朝"],["night","夜"],["young","若い"],["strong","強い"],["early","早い"],
+    ["hungry","お腹がすいた"],["sleepy","眠い"],["clean","きれいな・掃除する"],["build","建てる"],["carry","運ぶ"]
+  ],
+  intermediate: [
+    ["improve","改善する"],["decide","決める"],["explain","説明する"],["promise","約束する"],["arrive","到着する"],
+    ["foreign","外国の"],["several","いくつかの"],["already","すでに"],["expensive","高価な"],["dangerous","危険な"],
+    ["environment","環境"],["experience","経験"],["important","重要な"],["different","異なる"],["necessary","必要な"],
+    ["increase","増える・増やす"],["reduce","減らす"],["prepare","準備する"],["suggest","提案する"],["receive","受け取る"],
+    ["customer","顧客"],["meeting","会議"],["schedule","予定表"],["average","平均"],["traffic","交通"],
+    ["culture","文化"],["health","健康"],["effort","努力"],["chance","機会"],["result","結果"],
+    ["develop","発展させる"],["provide","提供する"],["include","含む"],["continue","続ける"],["compare","比較する"],
+    ["situation","状況"],["opinion","意見"],["knowledge","知識"],["century","世紀"],["foreign","外国の"]
+  ],
+  advanced: [
+    ["negotiate","交渉する"],["implement","実行する"],["sustainable","持続可能な"],["significant","重要な・著しい"],["efficiency","効率"],
+    ["acquisition","買収・取得"],["revenue","収益"],["investment","投資"],["dividend","配当金"],["inflation","インフレ"],
+    ["strategy","戦略"],["analysis","分析"],["procedure","手順"],["evaluate","評価する"],["facilitate","促進する"],
+    ["consequence","結果・影響"],["perspective","視点"],["initiative","主導権・新構想"],["collaborate","協力する"],["demonstrate","実証する"],
+    ["infrastructure","インフラ・基盤"],["legislation","法律・立法"],["controversy","論争"],["phenomenon","現象"],["hypothesis","仮説"],
+    ["comprehensive","包括的な"],["preliminary","予備的な"],["substantial","相当な"],["ambiguous","曖昧な"],["inevitable","避けられない"],
+    ["entrepreneur","起業家"],["bureaucracy","官僚制"],["transparency","透明性"],["accountability","説明責任"],["jurisdiction","管轄権"],
+    ["emergency","緊急事態"],["evacuation","避難"],["extinguish","消火する・消す"],["prevention","予防"],["rescue","救助する"]
+  ],
+  phrases: [
+    ["How are you doing","調子はどう？"],["Nice to meet you","はじめまして"],["Take it easy","気楽にいこう"],
+    ["See you tomorrow","また明日"],["What time is it","何時ですか"],["I have no idea","全くわからない"],
+    ["That sounds great","それは素晴らしい"],["Could you help me","手伝ってもらえますか"],["No problem at all","全く問題ないよ"],
+    ["Let me think about it","考えさせて"],["I am on my way","今向かっています"],["Thank you so much","本当にありがとう"],
+    ["Have a nice day","良い一日を"],["Long time no see","久しぶり"],["It is up to you","あなた次第だよ"],
+    ["I totally agree with you","完全に同意します"],["Please call me back later","後で折り返し電話ください"],
+    ["What do you recommend","おすすめは何ですか"],["I am looking forward to it","楽しみにしています"],
+    ["Practice makes perfect","継続は力なり"]
+  ]
+};
+
+const DURATION = { beginner: 60, intermediate: 60, advanced: 60, phrases: 90 };
+
+const $ = id => document.getElementById(id);
+const screens = { start: $("start-screen"), game: $("game-screen"), result: $("result-screen") };
+
+let state = null;
+
+function show(name) {
+  Object.values(screens).forEach(s => s.classList.add("hidden"));
+  screens[name].classList.remove("hidden");
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function bestKey(level) { return "etd-best-" + level; }
+
+function updateBestDisplay() {
+  const parts = [];
+  const names = { beginner: "初級", intermediate: "中級", advanced: "上級", phrases: "フレーズ" };
+  for (const lv of Object.keys(names)) {
+    const b = localStorage.getItem(bestKey(lv));
+    if (b) parts.push(`${names[lv]}: ${b}点`);
+  }
+  $("best-display").textContent = parts.length ? "🏆 自己ベスト — " + parts.join(" ／ ") : "";
+}
+
+function startGame(level) {
+  state = {
+    level,
+    queue: shuffle(WORDS[level]),
+    qIndex: 0,
+    pos: 0,
+    score: 0,
+    solved: 0,
+    keystrokes: 0,
+    errors: 0,
+    missedWords: new Map(),
+    currentMissed: false,
+    timeLeft: DURATION[level],
+    timer: null,
+    startedTyping: false
+  };
+  show("game");
+  nextWord();
+  updateHUD();
+  state.timer = setInterval(() => {
+    state.timeLeft--;
+    const t = $("time");
+    t.textContent = state.timeLeft;
+    t.classList.toggle("time-low", state.timeLeft <= 10);
+    if (state.timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function current() { return state.queue[state.qIndex % state.queue.length]; }
+
+function nextWord() {
+  if (state.qIndex >= state.queue.length) state.queue = shuffle(state.queue);
+  state.pos = 0;
+  state.currentMissed = false;
+  const [word, meaning] = current();
+  $("meaning").textContent = meaning;
+  $("hint").textContent = "Tab: スキップ";
+  renderWord();
+  $("bar").style.width = "0%";
+}
+
+function renderWord() {
+  const [word] = current();
+  const w = $("word");
+  w.innerHTML =
+    '<span class="done">' + esc(word.slice(0, state.pos)) + "</span>" +
+    '<span class="current">' + esc(word[state.pos] === " " ? "␣" : (word[state.pos] || "")) + "</span>" +
+    '<span class="rest">' + esc(word.slice(state.pos + 1)) + "</span>";
+  $("bar").style.width = (state.pos / word.length * 100) + "%";
+}
+
+function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+
+function updateHUD() {
+  $("score").textContent = state.score;
+  $("solved").textContent = state.solved;
+  const acc = state.keystrokes === 0 ? 100 : Math.round((state.keystrokes - state.errors) / state.keystrokes * 100);
+  $("acc").textContent = acc + "%";
+  $("time").textContent = state.timeLeft;
+}
+
+function onKey(e) {
+  if (!state || screens.game.classList.contains("hidden")) return;
+
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const [word, meaning] = current();
+    state.missedWords.set(word, meaning);
+    state.qIndex++;
+    nextWord();
+    return;
+  }
+  if (e.key.length !== 1 || e.metaKey || e.ctrlKey || e.altKey) return;
+  e.preventDefault();
+
+  const [word, meaning] = current();
+  const expected = word[state.pos];
+  state.keystrokes++;
+  if (!state.startedTyping) { state.startedTyping = true; state.typingStart = Date.now(); }
+
+  if (e.key.toLowerCase() === expected.toLowerCase() || (expected === " " && e.key === " ")) {
+    state.pos++;
+    if (state.pos >= word.length) {
+      const base = word.replace(/ /g,"").length * 10;
+      const bonus = state.currentMissed ? 0 : Math.round(base * 0.5);
+      state.score += base + bonus;
+      state.solved++;
+      state.qIndex++;
+      nextWord();
+    } else {
+      renderWord();
+    }
+  } else {
+    state.errors++;
+    state.currentMissed = true;
+    state.missedWords.set(word, meaning);
+    const w = $("word");
+    w.classList.remove("shake");
+    void w.offsetWidth;
+    w.classList.add("shake");
+  }
+  updateHUD();
+}
+
+function endGame() {
+  clearInterval(state.timer);
+  const acc = state.keystrokes === 0 ? 100 : Math.round((state.keystrokes - state.errors) / state.keystrokes * 100);
+  const minutes = DURATION[state.level] / 60;
+  const wpm = Math.round((state.keystrokes - state.errors) / 5 / minutes);
+
+  let rank, msg;
+  const s = state.score;
+  if (s >= 2000 && acc >= 95) { rank = "S"; msg = "達人級！ネイティブ顔負けのタイピング"; }
+  else if (s >= 1400) { rank = "A"; msg = "素晴らしい！この調子で語彙を増やそう"; }
+  else if (s >= 900) { rank = "B"; msg = "いい感じ！正確さを意識するとさらに伸びる"; }
+  else if (s >= 500) { rank = "C"; msg = "まずまず！毎日1プレイで確実に上達"; }
+  else { rank = "D"; msg = "焦らずコツコツ。ホームポジションを意識！"; }
+
+  $("rank").textContent = rank;
+  $("rank-msg").textContent = msg;
+  $("r-score").textContent = state.score;
+  $("r-solved").textContent = state.solved;
+  $("r-wpm").textContent = wpm;
+  $("r-acc").textContent = acc + "%";
+
+  const list = $("review-list");
+  list.innerHTML = "";
+  if (state.missedWords.size === 0) {
+    $("review").style.display = "none";
+  } else {
+    $("review").style.display = "";
+    for (const [w, m] of state.missedWords) {
+      const div = document.createElement("div");
+      div.className = "review-item";
+      div.innerHTML = '<span class="w">' + esc(w) + '</span><span class="m">' + esc(m) + "</span>";
+      list.appendChild(div);
+    }
+  }
+
+  const prev = parseInt(localStorage.getItem(bestKey(state.level)) || "0", 10);
+  if (state.score > prev) localStorage.setItem(bestKey(state.level), String(state.score));
+
+  show("result");
+}
+
+document.querySelectorAll(".level-btn").forEach(btn =>
+  btn.addEventListener("click", () => startGame(btn.dataset.level))
+);
+$("retry-btn").addEventListener("click", () => startGame(state.level));
+$("home-btn").addEventListener("click", () => { updateBestDisplay(); show("start"); });
+document.addEventListener("keydown", onKey);
+updateBestDisplay();
+window.__etd = { forceEnd: () => state && endGame() };
+</script>
+</body>
+</html>
